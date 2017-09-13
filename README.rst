@@ -2,6 +2,8 @@
 desimodel
 =========
 
+Forked to reflect changes and use for LVM Data Model
+
 Introduction
 ------------
 
