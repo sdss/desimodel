@@ -2,6 +2,7 @@ import unittest
 import os
 
 import numpy as np
+from astropy.table import Table
 
 from .. import io
 from .. import footprint
@@ -16,12 +17,62 @@ except KeyError:
 class TestFootprint(unittest.TestCase):
     
     def setUp(self):
-        pass
-            
+        io.reset_cache()
+
+    def test_pass2program(self):
+        '''Test footprint.pass2program(tilepass)
+        '''
+        self.assertEqual(footprint.pass2program(0), 'DARK')
+        self.assertEqual(footprint.pass2program(1), 'DARK')
+        self.assertEqual(footprint.pass2program(2), 'DARK')
+        self.assertEqual(footprint.pass2program(3), 'DARK')
+        self.assertEqual(footprint.pass2program(4), 'GRAY')
+        self.assertEqual(footprint.pass2program(5), 'BRIGHT')
+        self.assertEqual(footprint.pass2program(6), 'BRIGHT')
+        self.assertEqual(footprint.pass2program(7), 'BRIGHT')
+
+        passes = [0,1,2,3,4,5,6,7]
+        programs = ['DARK', 'DARK', 'DARK', 'DARK', 'GRAY', 'BRIGHT', 'BRIGHT', 'BRIGHT']
+        tmp = footprint.pass2program(passes)
+        self.assertEqual(tmp, programs)
+
+        tmp = footprint.pass2program(np.array(passes))
+        self.assertEqual(tmp, programs)
+
+        tmp = footprint.pass2program([0,0,1])
+        self.assertEqual(tmp, ['DARK', 'DARK', 'DARK'])
+
+        with self.assertRaises(KeyError):
+            footprint.pass2program(999)
+
+    def test_program2pass(self):
+        '''Test footprint.program2pass()
+        '''
+        self.assertEqual(footprint.program2pass('DARK'), [0,1,2,3])
+        self.assertEqual(footprint.program2pass('GRAY'), [4,])
+        self.assertEqual(footprint.program2pass('BRIGHT'), [5,6,7])
+        self.assertEqual(footprint.program2pass(['DARK', 'GRAY']), [[0,1,2,3], [4,]])
+        self.assertEqual(footprint.program2pass(np.array(['DARK', 'GRAY'])),
+                                                [[0,1,2,3], [4,]])
+        with self.assertRaises(ValueError):
+            footprint.program2pass('BLAT')
+
+        #- confirm it works with column inputs too
+        tiles = io.load_tiles()
+        passes = footprint.program2pass(tiles['PROGRAM'])
+        self.assertEqual(len(passes), len(tiles))
+        for p in passes:
+            self.assertNotEqual(p, None)
+        passes = footprint.program2pass(Table(tiles)['PROGRAM'])
+        self.assertEqual(len(passes), len(tiles))
+        for p in passes:
+            self.assertNotEqual(p, None)
+
     def test_get_tile_radec(self):
         """Test grabbing tile information by tileID.
         """
-        io_tile_cache = io._tiles
+        tx = io.load_tiles()
+        tilefile = list(io._tiles.keys())[0]
         tiles = np.zeros((4,), dtype=[('TILEID', 'i2'),
                                       ('RA', 'f8'),
                                       ('DEC', 'f8'),
@@ -34,12 +85,15 @@ class TestFootprint(unittest.TestCase):
         tiles['DEC'] = [-2.0, -1.0, 1.0, 2.0]
         tiles['IN_DESI'] = [0, 1, 1, 0]
         tiles['PROGRAM'] = 'DARK'
-        io._tiles = tiles
-        ra, dec = footprint.get_tile_radec(1)
-        self.assertEqual((ra, dec), (0.0, 0.0))
+        io._tiles[tilefile] = tiles
+
+        #- TILEID 1 should be filtered out as not in DESI
+        with self.assertRaises(ValueError):
+            ra, dec = footprint.get_tile_radec(1)
+
+        #- But TILEID 2 should be there with correct redshift
         ra, dec, = footprint.get_tile_radec(2)
         self.assertEqual((ra, dec), (1.0, -1.0))
-        io._tiles = io_tile_cache
 
     def test_is_point_in_desi_mock(self):
         tiles = np.zeros((4,), dtype=[('TILEID', 'i2'),
@@ -147,6 +201,12 @@ class TestFootprint(unittest.TestCase):
         ret = footprint.find_tiles_over_point(tiles, (0.0,), (-3.7,), radius=1.605)
         self.assertEqual(len(ret), 1)
         self.assertEqual(ret[0], [])
+    
+    def test_find_points_radec(self):
+        """Checks if the function is successfully finding points within a certain radius of a telra and teldec"""
+        import numpy as np
+        answer = footprint.find_points_radec(0, 0, np.array([1.5, 0, 1.9, 0]), np.array([0, 1.5, 0, 1.3]))
+        self.assertEqual(answer, [0, 1, 3])
 
     def test_partial_pixels(self):
         """check weights assigned to HEALPixels that partially overlap tiles"""

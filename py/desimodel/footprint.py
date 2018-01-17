@@ -7,8 +7,60 @@ from . import focalplane
 from . import io
 from . import __version__ as desimodel_version
 
-from desiutil.log import get_logger, DEBUG
-log = get_logger(DEBUG)
+from desiutil.log import get_logger
+log = get_logger()
+
+_pass2program = None
+def pass2program(tilepass):
+    '''
+    Converts integer tile pass number to string program name.
+
+    Args:
+        tilepass: (int or int array) tiling pass number
+
+    Returns:
+        program: program name for each pass (str or list of str)
+    '''
+    global _pass2program
+    if _pass2program is None:
+        tiles = io.load_tiles()
+        _pass2program = dict(set(zip(tiles['PASS'], tiles['PROGRAM'])))
+    if np.isscalar(tilepass):
+        return _pass2program[tilepass]
+    else:
+        return [_pass2program[p] for p in tilepass]
+
+def program2pass(program):
+    '''
+    Convert string program name to tile passes for that program.
+
+    Args:
+        program: (str for str array) program name, e.g. DARK, BRIGHT, or GRAY
+
+    Returns:
+        list of integer passes that cover that program, or list of lists
+        if input was array-like
+    '''
+    tiles = io.load_tiles()
+
+    if np.isscalar(program):
+        passes = sorted(list(set(tiles['PASS'][tiles['PROGRAM'] == program])))
+        if len(passes) > 0:
+            return passes
+        else:
+            known_programs = set(tiles['PROGRAM'])
+            msg = 'Unknown program {}; known programs are {}'.format(
+                program, known_programs)
+            raise ValueError(msg)
+    else:
+        program = np.asarray(program)
+        passes = [None,] * len(program)
+        for thisprogram in np.unique(program):
+            thesepasses = program2pass(thisprogram)
+            for i in np.where(program == thisprogram)[0]:
+                passes[i] = thesepasses
+
+        return passes
 
 def radec2pix(nside, ra, dec):
     '''Convert ra,dec to nested pixel number
@@ -457,39 +509,54 @@ def find_points_in_tiles(tiles, ra, dec, radius=None):
 
     default radius is from desimodel.focalplane.get_tile_radius_deg()
     """
-    from scipy.spatial import cKDTree as KDTree
+    return find_points_radec(tiles['RA'], tiles['DEC'], ra, dec, radius)
 
+def find_points_radec(telra, teldec, ra, dec, radius = None):
+    """Return a list of indices of points that are within a radius of an arbitrary telra, teldec.
+    
+    This function is optimized to query a lot of points with a single telra and teldec.
+    
+    radius is in units of degrees. The return value is a list
+    that contains the index of points that are in each tile.
+    The indices are not sorted in any particular order.
+    
+    if tiles is a scalar, a single list is returned.
+    
+    default radius is from desimodel.focalplane.get_tile_radius_deg()
+    
+    Note: This is simply a modified version of find_points_in_tiles, but this function does not know about tiles.
+    """
+    from scipy.spatial import cKDTree as KDTree
+    import numpy as np
+    
     if radius is None:
         radius = focalplane.get_tile_radius_deg()
-
+    
     # check for malformed input shapes. Sorry we currently only
     # deal with vector inputs. (for a sensible definition of indices)
-
+    
     assert ra.ndim == 1
     assert dec.ndim == 1
-
+    
     points = _embed_sphere(ra, dec)
     tree = KDTree(points)
-
+    
     # radius to 3d distance
     threshold = 2.0 * np.sin(np.radians(radius) * 0.5)
-    xyz = _embed_sphere(tiles['RA'], tiles['DEC'])
+    xyz = _embed_sphere(telra, teldec)
     indices = tree.query_ball_point(xyz, threshold)
     return indices
-
 #
 #
 #
 def get_tile_radec(tileid):
     """Return (ra, dec) in degrees for the requested tileid.
 
-    If tileid is not in DESI, return (0.0, 0.0)
-    TODO: should it raise and exception instead?
+    Raises ValueError if tileid is not in list of known tiles
     """
     tiles = io.load_tiles()
     if tileid in tiles['TILEID']:
         i = np.where(tiles['TILEID'] == tileid)[0][0]
         return tiles[i]['RA'], tiles[i]['DEC']
     else:
-        return (0.0, 0.0)
-
+        raise ValueError('Unknown tileid {}'.format(tileid))
