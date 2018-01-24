@@ -15,7 +15,10 @@ import warnings
 from lvmutil.log import get_logger
 log = get_logger()
 
+
 _thru = dict()
+
+
 def load_throughput(channel):
     """Returns specter Throughput object for the given channel 'b', 'r', or 'z'.
 
@@ -28,13 +31,14 @@ def load_throughput(channel):
     channel = channel.lower()
     global _thru
     if channel not in _thru:
-        thrufile = os.path.join(os.environ['LVMMODEL'],'data','throughput','thru-{0}.fits'.format(channel))
+        thrufile = os.path.join(os.environ['LVMMODEL'], 'data', 'throughput', 'thru-{0}.fits'.format(channel))
         _thru[channel] = specter.throughput.load_throughput(thrufile)
     return _thru[channel]
-#
-#
-#
+
+
 _psf = dict()
+
+
 def load_psf(channel):
     """Returns specter PSF object for the given channel 'b', 'r', or 'z'.
 
@@ -47,29 +51,50 @@ def load_psf(channel):
     channel = channel.lower()
     global _psf
     if channel not in _psf:
-        psffile = os.path.join(os.environ['LVMMODEL'],'data','specpsf','psf-{0}.fits'.format(channel))
+        psffile = os.path.join(os.environ['LVMMODEL'], 'data', 'specpsf', 'psf-{0}.fits'.format(channel))
         _psf[channel] = specter.psf.load_psf(psffile)
     return _psf[channel]
-#
-#
-#
+
+
 _params = None
-def load_desiparams():
-    """Returns DESI parameter dictionary loaded from lvmmodel/data/desi.yaml.
+
+
+def load_lvmparams(config='lvm', telescope='1m'):
+    """Returns LVM parameter dictionary loaded from lvmmodel/data/lvm.yaml.
+
+    Parameters:
+        config (str):
+            Which config yaml to load
+
+        telescope (str):
+            Which telescope config to load.
     """
+
+    # build param name
+    if config == 'lvm':
+        config_name = '{0}_{1}.yaml'.format(config, telescope)
+    else:
+        config_name = '{0}.yaml'.format(config)
+
     global _params
-    if _params is None:
-        desiparamsfile = os.path.join(os.environ['LVMMODEL'],'data','desi.yaml')
-        with open(desiparamsfile) as par:
+    sametele = _params is not None and 'telescope' in _params and telescope == _params['telescope']
+
+    if _params is None or not sametele:
+        lvmparamsfile = os.path.join(os.environ['LVMMODEL'], 'data', config_name)
+        with open(lvmparamsfile) as par:
             _params = yaml.load(par)
 
-        #- for temporary backwards compability after 'exptime' -> 'exptime_dark'
+        # - add config and telescope name
+        _params['config_name'] = config_name
+        _params['telescope'] = telescope
+
+        # - for temporary backwards compability after 'exptime' -> 'exptime_dark'
         if ('exptime' not in _params) and ('exptime_dark' in _params):
             _params['exptime'] = _params['exptime_dark']
 
-        #- Augment params with wavelength coverage from specpsf files
-        #- wavemin/max = min/max wavelength covered by *any* fiber on the CCD
-        #- wavemin/max_all = min/max wavelength covered by *all* fibers
+        # - Augment params with wavelength coverage from specpsf files
+        # - wavemin/max = min/max wavelength covered by *any* fiber on the CCD
+        # - wavemin/max_all = min/max wavelength covered by *all* fibers
         for channel in ['b', 'r', 'z']:
             hdr = fits.getheader(findfile('specpsf/psf-{}.fits'.format(channel)), 0)
             _params['ccd'][channel]['wavemin'] = hdr['WAVEMIN']
@@ -78,11 +103,12 @@ def load_desiparams():
             _params['ccd'][channel]['wavemax_all'] = hdr['WMAX_ALL']
 
     return _params
-#
-#
-#
+
+
 # Added and still needs to be committed and pushed to desihub
 _gfa = None
+
+
 def load_gfa():
     """Returns GFA table from lvmmodel/data/focalplane/gfa.ecsv"""
     global _gfa
@@ -91,34 +117,34 @@ def load_gfa():
     import os
     if _gfa is None:
         gfaFile = os.path.join(os.environ['LVMMODEL'], 'data', 'focalplane', 'gfa.ecsv')
-        _gfa = Table.read(gfaFile, format = 'ascii.ecsv')
+        _gfa = Table.read(gfaFile, format='ascii.ecsv')
     return _gfa
-#
-#
-#
+
+
 _fiberpos = None
+
+
 def load_fiberpos():
     """Returns fiberpos table from lvmmodel/data/focalplane/fiberpos.fits.
     """
     global _fiberpos
     from astropy.table import Table
     if _fiberpos is None:
-        fiberposfile = os.path.join(os.environ['LVMMODEL'],'data','focalplane','fiberpos.fits')
+        fiberposfile = os.path.join(os.environ['LVMMODEL'], 'data', 'focalplane', 'fiberpos.fits')
         _fiberpos = Table.read(fiberposfile)
-        #- Convert to upper case if needed
-        #- Make copy of colnames b/c they are updated during iteration
+        # - Convert to upper case if needed
+        # - Make copy of colnames b/c they are updated during iteration
         for col in list(_fiberpos.colnames):
             if col.islower():
                 _fiberpos.rename_column(col, col.upper())
 
-        #- Temporary backwards compatibility for renamed columns
+        # - Temporary backwards compatibility for renamed columns
         if 'POSITIONER' in _fiberpos.colnames:
             import warnings
             warnings.warn('old fiberpos.fits with POSITIONER column instead of LOCATION; please update your $LVMMODEL checkout', DeprecationWarning)
             _fiberpos['LOCATION'] = _fiberpos['POSITIONER']
         else:
             _fiberpos['POSITIONER'] = _fiberpos['LOCATION']
-
 
         if 'SPECTROGRAPH' in _fiberpos.colnames:
             import warnings
@@ -128,10 +154,11 @@ def load_fiberpos():
             _fiberpos['SPECTROGRAPH'] = _fiberpos['SPECTRO']
 
     return _fiberpos
-#
-#
-#
+
+
 _tiles = dict()
+
+
 def load_tiles(onlydesi=True, extra=False, tilesfile=None, cache=True):
     """Return DESI tiles structure from lvmmodel/data/footprint/desi-tiles.fits.
 
@@ -152,12 +179,12 @@ def load_tiles(onlydesi=True, extra=False, tilesfile=None, cache=True):
     if tilesfile is None:
         tilesfile = 'desi-tiles.fits'
 
-    #- Check if tilesfile includes a path (absolute or relative)
+    # - Check if tilesfile includes a path (absolute or relative)
     tilespath, filename = os.path.split(tilesfile)
     if tilespath == '':
-        tilesfile = os.path.join(os.environ['LVMMODEL'],'data','footprint',filename)
+        tilesfile = os.path.join(os.environ['LVMMODEL'], 'data', 'footprint', filename)
 
-    #- standarize path location
+    # - standarize path location
     tilesfile = os.path.abspath(tilesfile)
 
     if cache and tilesfile in _tiles:
@@ -172,21 +199,21 @@ def load_tiles(onlydesi=True, extra=False, tilesfile=None, cache=True):
         if any([c.bzero is not None for c in tiledata.columns]):
             foo = [_tiles[k].dtype for k in tiledata.dtype.names]
 
-        #- Check for out-of-date tiles file
+        # - Check for out-of-date tiles file
         if np.issubdtype(tiledata['OBSCONDITIONS'].dtype, 'u2'):
             import warnings
             warnings.warn('old desi-tiles.fits with uint16 OBSCONDITIONS; please update your $LVMMODEL checkout', DeprecationWarning)
 
-        #- load cache for next time
+        # - load cache for next time
         if cache:
             _tiles[tilesfile] = tiledata
 
-    #- Filter to only the DESI footprint if requested
+    # - Filter to only the DESI footprint if requested
     subset = np.ones(len(tiledata), dtype=bool)
     if onlydesi:
         subset &= tiledata['IN_DESI'] > 0
 
-    #- Filter out PROGRAM=EXTRA tiles if requested
+    # - Filter out PROGRAM=EXTRA tiles if requested
     if not extra:
         subset &= ~np.char.startswith(tiledata['PROGRAM'], 'EXTRA')
 
@@ -195,7 +222,10 @@ def load_tiles(onlydesi=True, extra=False, tilesfile=None, cache=True):
     else:
         return tiledata[subset]
 
+
 _platescale = None
+
+
 def load_platescale():
     '''
     Loads platescale.txt, returning structured array with columns
@@ -216,8 +246,9 @@ def load_platescale():
         ('radial_platescale', 'f8'),
         ('az_platescale', 'f8'),
     ]
-    _platescale = np.loadtxt(infile, usecols=[0,1,6,7], dtype=columns)
+    _platescale = np.loadtxt(infile, usecols=[0, 1, 6, 7], dtype=columns)
     return _platescale
+
 
 def reset_cache():
     '''Reset I/O cache'''
@@ -230,6 +261,7 @@ def reset_cache():
     _tiles = dict()
     _platescale = None
 
+
 def load_target_info():
     '''
     Loads data/targets/targets.yaml and returns the nested dictionary
@@ -238,14 +270,15 @@ def load_target_info():
     paths and filenames by hand (which e.g. broke when targets.dat was
     renamed to targets.yaml)
     '''
-    targetsfile = os.path.join(datadir(),'targets','targets.yaml')
+    targetsfile = os.path.join(datadir(), 'targets', 'targets.yaml')
     if not os.path.exists(targetsfile):
-        targetsfile = os.path.join(datadir(),'targets','targets.dat')
+        targetsfile = os.path.join(datadir(), 'targets', 'targets.dat')
 
     with open(targetsfile) as fx:
         data = yaml.load(fx)
 
     return data
+
 
 def load_pixweight(nside):
     '''
@@ -255,20 +288,21 @@ def load_pixweight(nside):
                passed HEALPix nside
     '''
     import healpy as hp
-    #ADM read in the standard pixel weights file
-    pixfile = os.path.join(os.environ['LVMMODEL'],'data','footprint','desi-healpix-weights.fits')
+    # ADM read in the standard pixel weights file
+    pixfile = os.path.join(os.environ['LVMMODEL'], 'data', 'footprint', 'desi-healpix-weights.fits')
     with fits.open(pixfile) as hdulist:
         pix = hdulist[0].data
 
-    #ADM determine the file's nside, and flag a warning if the passed nside exceeds it
+    # ADM determine the file's nside, and flag a warning if the passed nside exceeds it
     npix = len(pix)
     truenside = hp.npix2nside(len(pix))
     if truenside < nside:
-        log.warning("downsampling is fuzzy...Passed nside={}, but file {} is stored at nside={}"
-                  .format(nside,pixfile,truenside))
+        log.warning("downsampling is fuzzy...Passed nside={}, "
+                    "but file {} is stored at nside={}".format(nside, pixfile, truenside))
 
-    #ADM resample the map
-    return hp.pixelfunc.ud_grade(pix,nside,order_in='NESTED',order_out='NESTED')
+    # ADM resample the map
+    return hp.pixelfunc.ud_grade(pix, nside, order_in='NESTED', order_out='NESTED')
+
 
 def findfile(filename):
     '''
@@ -279,6 +313,7 @@ def findfile(filename):
     would become an optional override.
     '''
     return os.path.join(datadir(), filename)
+
 
 def datadir():
     '''
