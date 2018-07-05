@@ -2,20 +2,66 @@
 desimodel Release Notes
 =======================
 
-0.9.2 (unreleased)
+0.9.6 (unreleased)
 ------------------
 
 * No changes yet.
 
+0.9.5 (2018-06-27)
+------------------
+
+* Increase test coverage, especially for :mod:`desimodel.trim` (PR `#82`_).
+* Reorganize desimodel.focalplane and add more GFA selection code (PR `#85`_).
+* Allow an environment variable in the tilesfile filename (PR `#87`_).
+
+.. _`#82`: https://github.com/desihub/desimodel/pull/82
+.. _`#85`: https://github.com/desihub/desimodel/pull/85
+.. _`#87`: https://github.com/desihub/desimodel/pull/87
+
+0.9.4 (2018-03-29)
+------------------
+
+* Download script will create :envvar:`INSTALL_DIR` if it doesn't exist (PR `#80`_).
+
+.. _`#80`: https://github.com/desihub/desimodel/pull/80
+
+0.9.3 (2018-03-14)
+------------------
+
+* Fix some installation bugs, and update to latest versions on various
+  dependencies (PR `#77`_).
+* Ensure that desimodel tests are compatible with Astropy 2 and 3, and with
+  other DESI packages (PR `#78`_).
+* Add ``footprint/desi-healpix-weights.fits`` and
+  ``throughput/galsim-fiber-acceptance.fits`` to the trimmed test data set
+  (PR `#79`_).
+
+.. _`#77`: https://github.com/desihub/desimodel/pull/77
+.. _`#78`: https://github.com/desihub/desimodel/pull/78
+.. _`#79`: https://github.com/desihub/desimodel/pull/79
+
+
+0.9.2 (2018-02-27)
+------------------
+
+* Update LyA S/N calculation (PR `#73`_).
+* Optionally use an input pixel weight map in :func:`~desimodel.io.load_pixweight`
+  (PR `#74`_).
+
+.. _`#73`: https://github.com/desihub/desimodel/pull/73
+.. _`#74`: https://github.com/desihub/desimodel/pull/74
+
 0.9.1 (2017-11-10)
 ------------------
 
-* Extracts wavelength coverage from specpsf files into params dictionary (`PR#68`_).
-* Added desimodel.footprint.program2pass and pass2program to convert between
-  tiling integer pass number and string program name (`PR#67`_).
+* Extracts wavelength coverage from specpsf files into params dictionary
+  (PR `#68`_).
+* Added :func:`~desimodel.footprint.program2pass` and
+  :func:`~desimodel.footprint.pass2program` to convert between
+  tiling integer pass number and string program name (PR `#67`_).
 
-.. _`PR#67`: https://github.com/desihub/desimodel/pull/67
-.. _`PR#68`: https://github.com/desihub/desimodel/pull/68
+.. _`#67`: https://github.com/desihub/desimodel/pull/67
+.. _`#68`: https://github.com/desihub/desimodel/pull/68
 
 0.9.0 (2017-09-19)
 ------------------
@@ -23,7 +69,7 @@ desimodel Release Notes
 * Added desimodel.focalplane.radec2xy, which converts RA, Dec coordinates to x, y coordinates on the focal plane, which accepts vector inputs.
 * Added desimodel.focalplane.on_gfa() and its respective helper functions to check if a target is on a GFA of arbitrary telescope pointing
 * Added desimodel.focalplane.on_tile_gfa() to check return a list of indices of targets on a specific tile
-* Added desimodel.focalplane.get_gfa_targets() to return a table with added columns GFA_LOC and TILEID that consists of all targets on any GFA on any tile satisfying a minimum flux in the r-band. 
+* Added desimodel.focalplane.get_gfa_targets() to return a table with added columns GFA_LOC and TILEID that consists of all targets on any GFA on any tile satisfying a minimum flux in the r-band.
 * Unittests for the desimodel.focalplane functions were updated accordingly.
 * Added desimodel.footprint.find_points_in_tel_range() to return a list of indices withnin a radius of an arbitray telescope pointing, unaware of tiles (Added respective unittest)
 * Adds desimodel.focalplane.fiber_area_arcsec2()

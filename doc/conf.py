@@ -14,7 +14,7 @@
 
 import sys
 import os
-import os.path
+from importlib import import_module
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -45,7 +45,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    napoleon_extension
+    'sphinx.ext.napoleon'
 ]
 
 # Configuration for intersphinx, copied from astropy.
@@ -73,7 +73,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'desimodel'
-copyright = u'2014-2016, DESI Collaboration'
+copyright = u'2014-2018, DESI Collaboration'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -131,11 +131,12 @@ napoleon_include_private_with_doc = True
 # This value contains a list of modules to be mocked up. This is useful when
 # some external dependencies are not met at build time and break the
 # building process.
-autodoc_mock_imports = ['numpy', 'astropy.io', 'astropy.io.fits',
-                        'astropy.table', 'astropy.units',
-                        'specter', 'specter.throughput', 'specter.psf',
-                        'scipy.interpolate',
-                        'scipy.signal', 'scipy.special']
+autodoc_mock_imports = []
+for missing in ('astropy', 'desiutil', 'healpy', 'numpy', 'scipy', 'specter', 'yaml'):
+    try:
+        foo = import_module(missing)
+    except ImportError:
+        autodoc_mock_imports.append(missing)
 
 # -- Options for HTML output ----------------------------------------------
 

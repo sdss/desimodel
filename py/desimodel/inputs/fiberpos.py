@@ -1,5 +1,10 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+# -*- coding: utf-8 -*-
 '''
-Utilities for updating positioner to fiber mapping
+desimodel.inputs.fiberpos
+=========================
+
+Utilities for updating positioner to fiber mapping.
 '''
 import os
 import shutil
@@ -17,7 +22,8 @@ def update(testdir=None, seed=2):
     Options:
         testdir: if not None, write files here instead of
             $DESIMODEL/data/footprint/fiberpos*
-        seed: integer random number seed for randomization within a cartridge
+        seed:
+            integer random number seed for randomization within a cartridge
 
     Writes testdir/fiberpos* or $DESIMODEL/data/focalplane/fiberpos*
     '''

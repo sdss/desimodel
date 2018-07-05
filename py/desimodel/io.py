@@ -96,6 +96,22 @@ def load_gfa():
 #
 #
 #
+_deviceloc = None
+def load_deviceloc():
+    global _deviceloc
+    from astropy.table import Table
+    if _deviceloc is None:
+        fiberposfile = os.path.join(os.environ['DESIMODEL'],'data','focalplane','fiberpos-all.fits')
+        _deviceloc = Table.read(fiberposfile)
+
+    #- Convert to upper case if needed
+    #- Make copy of colnames b/c they are updated during iteration
+    for col in list(_deviceloc.colnames):
+        if col.islower():
+            _deviceloc.rename_column(col, col.upper())
+
+    return _deviceloc
+
 _fiberpos = None
 def load_fiberpos():
     """Returns fiberpos table from desimodel/data/focalplane/fiberpos.fits.
@@ -113,7 +129,6 @@ def load_fiberpos():
 
         #- Temporary backwards compatibility for renamed columns
         if 'POSITIONER' in _fiberpos.colnames:
-            import warnings
             warnings.warn('old fiberpos.fits with POSITIONER column instead of LOCATION; please update your $DESIMODEL checkout', DeprecationWarning)
             _fiberpos['LOCATION'] = _fiberpos['POSITIONER']
         else:
@@ -121,7 +136,6 @@ def load_fiberpos():
 
 
         if 'SPECTROGRAPH' in _fiberpos.colnames:
-            import warnings
             warnings.warn('old fiberpos.fits with SPECTROGRAPH column instead of SPECTRO; please update your $DESIMODEL checkout', DeprecationWarning)
             _fiberpos['SPECTRO'] = _fiberpos['SPECTROGRAPH']
         else:
@@ -158,7 +172,7 @@ def load_tiles(onlydesi=True, extra=False, tilesfile=None, cache=True):
         tilesfile = os.path.join(os.environ['DESIMODEL'],'data','footprint',filename)
 
     #- standarize path location
-    tilesfile = os.path.abspath(tilesfile)
+    tilesfile = os.path.abspath(tilesfile.format(**os.environ))
 
     if cache and tilesfile in _tiles:
         tiledata = _tiles[tilesfile]
@@ -173,8 +187,7 @@ def load_tiles(onlydesi=True, extra=False, tilesfile=None, cache=True):
             foo = [_tiles[k].dtype for k in tiledata.dtype.names]
 
         #- Check for out-of-date tiles file
-        if np.issubdtype(tiledata['OBSCONDITIONS'].dtype, 'u2'):
-            import warnings
+        if np.issubdtype(tiledata['OBSCONDITIONS'].dtype, np.unsignedinteger):
             warnings.warn('old desi-tiles.fits with uint16 OBSCONDITIONS; please update your $DESIMODEL checkout', DeprecationWarning)
 
         #- load cache for next time
@@ -247,28 +260,38 @@ def load_target_info():
 
     return data
 
-def load_pixweight(nside):
+def load_pixweight(nside, pixmap=None):
     '''
     Loads desimodel/data/footprint/desi-healpix-weights.fits
 
+    Args:
         nside: after loading, the array will be resampled to the
-               passed HEALPix nside
+            passed HEALPix nside
+
+    Options:
+        pixmap: input pixel weight map (optional, defaults to None)
+
+    Returns healpix weight map for the DESI footprint at the requested nside
     '''
     import healpy as hp
-    #ADM read in the standard pixel weights file
-    pixfile = os.path.join(os.environ['DESIMODEL'],'data','footprint','desi-healpix-weights.fits')
-    with fits.open(pixfile) as hdulist:
-        pix = hdulist[0].data
-    
+
+    if pixmap is not None:
+        log.debug('Using input pixel weight map of length {}.'.format(len(pixmap)))
+    else:
+        #ADM read in the standard pixel weights file
+        pixfile = os.path.join(os.environ['DESIMODEL'],'data','footprint','desi-healpix-weights.fits')
+        with fits.open(pixfile) as hdulist:
+            pixmap = hdulist[0].data
+
     #ADM determine the file's nside, and flag a warning if the passed nside exceeds it
-    npix = len(pix)
-    truenside = hp.npix2nside(len(pix))
+    npix = len(pixmap)
+    truenside = hp.npix2nside(len(pixmap))
     if truenside < nside:
         log.warning("downsampling is fuzzy...Passed nside={}, but file {} is stored at nside={}"
                   .format(nside,pixfile,truenside))
 
     #ADM resample the map
-    return hp.pixelfunc.ud_grade(pix,nside,order_in='NESTED',order_out='NESTED')
+    return hp.pixelfunc.ud_grade(pixmap,nside,order_in='NESTED',order_out='NESTED')
 
 def findfile(filename):
     '''
