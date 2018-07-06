@@ -54,14 +54,27 @@ def load_psf(channel):
 #
 #
 _params = None
-def load_desiparams():
+def load_desiparams(config='lvm', telescope='1m'):
     """Returns DESI parameter dictionary loaded from desimodel/data/desi.yaml.
     """
+
+    # build param name
+    if config == 'lvm':
+        config_name = '{0}_{1}.yaml'.format(config, telescope)
+    else:
+        config_name = '{0}.yaml'.format(config)
+
     global _params
-    if _params is None:
-        desiparamsfile = os.path.join(os.environ['DESIMODEL'],'data','desi.yaml')
+    sametele = _params is not None and 'telescope' in _params and telescope == _params['telescope']
+
+    if _params is None or not sametele:
+        desiparamsfile = os.path.join(os.environ['DESIMODEL'],'data',config_name)
         with open(desiparamsfile) as par:
             _params = yaml.load(par)
+
+        # - add config and telescope name
+        _params['config_name'] = config_name
+        _params['telescope'] = telescope
 
         #- for temporary backwards compability after 'exptime' -> 'exptime_dark'
         if ('exptime' not in _params) and ('exptime_dark' in _params):
