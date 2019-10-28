@@ -103,7 +103,7 @@ def radec2pix(nside, ra, dec):
     return hp.ang2pix(nside, theta, phi, nest=True)
 
 
-def tiles2pix(nside, tiles=None, radius=None, per_tile=False, fact=4):
+def tiles2pix(nside, tiles=None, radius=None, per_tile=False, fact=2**7):
     '''Returns sorted array of pixels that overlap the tiles.
 
     Args:
@@ -156,7 +156,7 @@ def tileids2pix(nside, tileids, radius=None, per_tile=False):
         raise ValueError('{}/{} TILEID(s) not in DESI footprint: {}'.format(
             len(extra), len(tileids), extra))
 
-def tiles2fracpix(nside, step=1, tiles=None, radius=None, fact=4):
+def tiles2fracpix(nside, step=1, tiles=None, radius=None, fact=2**7):
     '''Returns a sorted array of just the *fractional* pixels that overlap the
     tiles.
 
@@ -480,6 +480,9 @@ def is_point_in_desi(tiles, ra, dec, radius=None, return_tile_index=False):
     # radius to 3d distance
     threshold = 2.0 * np.sin(np.radians(radius) * 0.5)
     xyz = _embed_sphere(ra, dec)
+    if not xyz.flags['C_CONTIGUOUS']:
+        xyz = xyz.copy()
+
     d, i = tree.query(xyz, k=1)
 
     indesi = d < threshold
@@ -514,6 +517,9 @@ def find_tiles_over_point(tiles, ra, dec, radius=None):
     # radius to 3d distance
     threshold = 2.0 * np.sin(np.radians(radius) * 0.5)
     xyz = _embed_sphere(ra, dec)
+    if not xyz.flags['C_CONTIGUOUS']:
+        xyz = xyz.copy()
+
     indices = tree.query_ball_point(xyz, threshold)
     return indices
 
@@ -567,6 +573,9 @@ def find_points_radec(telra, teldec, ra, dec, radius = None):
     # radius to 3d distance
     threshold = 2.0 * np.sin(np.radians(radius) * 0.5)
     xyz = _embed_sphere(telra, teldec)
+    if not xyz.flags['C_CONTIGUOUS']:
+        xyz = xyz.copy()
+
     indices = tree.query_ball_point(xyz, threshold)
     return indices
 

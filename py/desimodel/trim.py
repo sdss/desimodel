@@ -42,6 +42,7 @@ def trim_data(indir, outdir, overwrite=False):
     trim_spectra(*inout(indir, outdir, 'spectra'))
     trim_targets(*inout(indir, outdir, 'targets'))
     trim_throughput(*inout(indir, outdir, 'throughput'))
+    trim_weather(*inout(indir, outdir, 'weather'))
 
 
 def inout(indir, outdir, filename):
@@ -130,6 +131,12 @@ def trim_spectra(indir, outdir):
                     i += 1
 
 
+def trim_weather(indir, outdir):
+    '''copy everything in weather/'''
+    assert os.path.basename(indir) == 'weather'
+    shutil.copytree(indir, outdir)
+
+
 def trim_targets(indir, outdir):
     '''copy everything in targets/'''
     assert os.path.basename(indir) == 'targets'
@@ -158,7 +165,7 @@ def trim_throughput(indir, outdir):
     # galsim-fiber-acceptance.fits is about 230 KB, and it's a fairly
     # complex file, so just copy as-is.
     for filename in ('DESI-0347_blur.ecsv', 'DESI-0347_offset.ecsv',
-                     'DESI-0347_random_offset_1.fits',
+                     'DESI-0347_static_offset_1.fits',
                      'galsim-fiber-acceptance.fits'):
         shutil.copy(os.path.join(indir, filename), os.path.join(outdir, filename))
 

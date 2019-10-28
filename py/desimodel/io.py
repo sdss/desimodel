@@ -7,13 +7,19 @@ desimodel.io
 I/O utility functions for files in desimodel.
 """
 import os
-from astropy.io import fits
+import sys
+import re
+import warnings
+from datetime import datetime
+
 import yaml
 import numpy as np
-import warnings
+from astropy.io import fits
+from astropy.table import Table, Column
 
 from desiutil.log import get_logger
 log = get_logger()
+
 
 _thru = dict()
 def load_throughput(channel):
@@ -70,7 +76,7 @@ def load_desiparams(config='lvm', telescope='1m'):
     if _params is None or not sametele:
         desiparamsfile = os.path.join(os.environ['DESIMODEL'],'data',config_name)
         with open(desiparamsfile) as par:
-            _params = yaml.load(par)
+            _params = yaml.safe_load(par)
 
         # - add config and telescope name
         _params['config_name'] = config_name
@@ -134,6 +140,7 @@ def load_fiberpos():
     if _fiberpos is None:
         fiberposfile = os.path.join(os.environ['DESIMODEL'],'data','focalplane','fiberpos.fits')
         _fiberpos = Table.read(fiberposfile)
+        _fiberpos.sort('FIBER')
         #- Convert to upper case if needed
         #- Make copy of colnames b/c they are updated during iteration
         for col in list(_fiberpos.colnames):
@@ -177,15 +184,37 @@ def load_tiles(onlydesi=True, extra=False, tilesfile=None, cache=True):
     global _tiles
 
     if tilesfile is None:
-        tilesfile = 'desi-tiles.fits'
+        # Use the default
+        tilesfile = os.path.join(
+            os.environ['DESIMODEL'], 'data', 'footprint', 'desi-tiles.fits')
+    else:
+        # If full path isn't included, check local vs $DESIMODEL/data/footprint
+        tilepath, filename = os.path.split(tilesfile)
+        if tilepath == '':
+            have_local = os.path.isfile(tilesfile)
+            checkfile = os.path.join(os.environ['DESIMODEL'],
+                                     'data', 'footprint', tilesfile)
+            have_dmdata = os.path.isfile(checkfile)
+            if have_dmdata:
+                if have_local:
+                    msg = '$DESIMODEL/data/footprint/{} is shadowed by a local'\
+                          ' file. Choosing $DESIMODEL file.'\
+                          ' Use tilesfile="./{}" if you want the local copy'\
+                          ' instead'.format(tilesfile, tilesfile)
+                    warnings.warn(msg)
+                tilesfile = checkfile
 
-    #- Check if tilesfile includes a path (absolute or relative)
-    tilespath, filename = os.path.split(tilesfile)
-    if tilespath == '':
-        tilesfile = os.path.join(os.environ['DESIMODEL'],'data','footprint',filename)
+            if not (have_local or have_dmdata):
+                msg = 'File "{}" does not exist locally or in '\
+                      '$DESIMODEL/data/footprint/'.format(tilesfile)
+                if sys.version_info.major == 2:
+                    raise IOError(msg)
+                else:
+                    raise FileNotFoundError(msg)
 
     #- standarize path location
     tilesfile = os.path.abspath(tilesfile.format(**os.environ))
+    log.debug('Loading tiles from %s', tilesfile)
 
     if cache and tilesfile in _tiles:
         tiledata = _tiles[tilesfile]
@@ -245,9 +274,153 @@ def load_platescale():
     _platescale = np.loadtxt(infile, usecols=[0,1,6,7], dtype=columns)
     return _platescale
 
+
+_focalplane = None
+def load_focalplane(time=None):
+    """Load the focalplane state that is valid for the given time.
+
+    Options:
+        time (datetime):  The time to query. default to current time.
+
+    Returns:
+        (tuple):  The (FP layout, exclusion polygons, state, time string).
+            The FP layout is a Table.  The exclusion polygons are a dictionary
+            indexed by names that are referenced in the state.  The state
+            is a Table.  The time string is the resulting UTC ISO format
+            time string used by the lookup.
+
+    """
+    if time is None:
+        time = datetime.now()
+
+    global _focalplane
+    if _focalplane is None:
+        # First call, load all data files.
+        fpdir = os.path.join(datadir(), "focalplane")
+        fppat = re.compile(r"desi-focalplane_(.*)\.ecsv")
+        stpat = re.compile(r"desi-state_(.*)\.ecsv")
+        expat = re.compile(r"desi-exclusion_(.*)\.yaml")
+        fpraw = dict()
+        msg = "Loading focalplanes from {}".format(fpdir)
+        log.debug(msg)
+        for root, dirs, files in os.walk(fpdir):
+            for f in files:
+                fpmat = fppat.match(f)
+                if fpmat is not None:
+                    dt = fpmat.group(1)
+                    if dt not in fpraw:
+                        fpraw[dt] = dict()
+                    fpraw[dt]["fp"] = os.path.join(root, f)
+                    continue
+                stmat = stpat.match(f)
+                if stmat is not None:
+                    dt = stmat.group(1)
+                    if dt not in fpraw:
+                        fpraw[dt] = dict()
+                    fpraw[dt]["st"] = os.path.join(root, f)
+                    continue
+                exmat = expat.match(f)
+                if exmat is not None:
+                    dt = exmat.group(1)
+                    if dt not in fpraw:
+                        fpraw[dt] = dict()
+                    fpraw[dt]["ex"] = os.path.join(root, f)
+            break
+        # Check that we have all 3 files needed for each timestamp
+        for ts, files in fpraw.items():
+            for key in ["fp", "st", "ex"]:
+                if key not in files:
+                    msg = "Focalplane state for time {} is missing one of \
+                          the 3 required files (focalplane, state, exclusion)"\
+                          .format(ts)
+                    raise RuntimeError(msg)
+        # Now load the files for each time into our cached global variable.
+        _focalplane = list()
+        for ts in sorted(fpraw.keys()):
+            dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
+            fp = Table.read(fpraw[ts]["fp"], format="ascii.ecsv")
+            st = Table.read(fpraw[ts]["st"], format="ascii.ecsv")
+            ex = None
+            with open(fpraw[ts]["ex"], "r") as f:
+                ex = yaml.safe_load(f)
+            _focalplane.append((dt, fp, ex, st))
+
+    # Search the list of states for the most recent time that is before our
+    # requested time.  There should not be too many different states, or else
+    # we are using the wrong format for storing these.  Therefore, a linear
+    # search should be fast enough.
+    fp_data = None
+    excl_data = None
+    fullstate = None
+    tmstr = None
+    for dt, fp, ex, st in _focalplane:
+        if time > dt:
+            fp_data = fp
+            excl_data = ex
+            fullstate = st
+            try:
+                tmstr = dt.isoformat(timespec="seconds")
+            except TypeError:
+                # This must be python < 3.6, with no timespec option.
+                # Since the focalplane time is read from the file name without
+                # microseconds, the microseconds should be zero and so the
+                # default return string will be correct.
+                tmstr = dt.isoformat()
+        else:
+            break
+
+    if fullstate is None:
+        msg = "Cannot find focalplane for time {}".format(time)
+        raise RuntimeError(msg)
+
+    # Now "replay" the state up to our requested time.
+    locstate = dict()
+    for row in range(len(fullstate)):
+        tm = datetime.strptime(fullstate[row]["TIME"], "%Y-%m-%dT%H:%M:%S")
+        if tm <= time:
+            loc = fullstate[row]["LOCATION"]
+            pet = fullstate[row]["PETAL"]
+            dev = fullstate[row]["DEVICE"]
+            st = fullstate[row]["STATE"]
+            excl = fullstate[row]["EXCLUSION"]
+            if loc not in locstate:
+                locstate[loc] = dict()
+            locstate[loc]["PETAL"] = pet
+            locstate[loc]["DEVICE"] = dev
+            locstate[loc]["STATE"] = st
+            locstate[loc]["EXCLUSION"] = excl
+
+    nloc = len(locstate)
+    state_cols = [
+        Column(name="PETAL", length=nloc, dtype=np.int32,
+               description="Petal location [0-9]"),
+        Column(name="DEVICE", length=nloc, dtype=np.int32,
+               description="Device location on the petal"),
+        Column(name="LOCATION", length=nloc, dtype=np.int32,
+               description="Global device location (PETAL * 1000 + DEVICE)"),
+        Column(name="STATE", length=nloc, dtype=np.uint32,
+               description="State bit field (good == 0)"),
+        Column(name="EXCLUSION", length=nloc, dtype=np.dtype("a9"),
+               description="The exclusion polygon for this device"),
+    ]
+    state_data = Table()
+    state_data.add_columns(state_cols)
+    row = 0
+    for loc in sorted(locstate.keys()):
+        state_data[row]["PETAL"] = locstate[loc]["PETAL"]
+        state_data[row]["DEVICE"] = locstate[loc]["DEVICE"]
+        state_data[row]["LOCATION"] = loc
+        state_data[row]["STATE"] = locstate[loc]["STATE"]
+        state_data[row]["EXCLUSION"] = locstate[loc]["EXCLUSION"]
+        row += 1
+
+    return (fp_data, excl_data, state_data, tmstr)
+
+
 def reset_cache():
     '''Reset I/O cache'''
-    global _thru, _psf, _params, _gfa, _fiberpos, _tiles, _platescale
+    global _thru, _psf, _params, _gfa, _fiberpos, _tiles, _platescale,\
+        _focalplane
     _thru = dict()
     _psf = dict()
     _params = None
@@ -255,6 +428,7 @@ def reset_cache():
     _fiberpos = None
     _tiles = dict()
     _platescale = None
+    _focalplane = None
 
 def load_target_info():
     '''
@@ -269,7 +443,7 @@ def load_target_info():
         targetsfile = os.path.join(datadir(),'targets','targets.dat')
 
     with open(targetsfile) as fx:
-        data = yaml.load(fx)
+        data = yaml.safe_load(fx)
 
     return data
 

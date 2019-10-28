@@ -2,16 +2,114 @@
 desimodel Release Notes
 =======================
 
-0.9.6 (unreleased)
+0.11.0 (planned)
+----------------
+
+* svn data only: updated ``data/footprint/desi-tiles.fits`` and
+  ``desi-healpix-weights.fits`` with new dither pattern; see DESI-0717.
+  Layers 0=GRAY, 1-4=DARK instead of 0-3=DARK, 4=GRAY.
+
+0.10.1 (2019-10-17)
+-------------------
+
+* Workaround upstream bugs in positioner locations (PR `#118`_).
+* Added `desimodel.focalplate.fieldrot.field_rotation_angle` with
+  field rotation CS5 vs. ICRS due to precession (PR `#119`_).
+* Add focalplane model documentation (PR `#125`_).
+
+.. _`#118`: https://github.com/desihub/desimodel/pull/118
+.. _`#119`: https://github.com/desihub/desimodel/pull/119
+.. _`#125`: https://github.com/desihub/desimodel/pull/125
+
+0.10.0 (2019-09-25)
+-------------------
+
+* Store petal and gfa keepouts in the focalplane model (PR `#112`_).
+* When generating a focalplane, check for device locations assigned to the
+  same slitblock and fiber (PR `#113`_).
+* Fix support for ``datetime.isoformat()`` in Python 3.5 (PR `#114`_).
+* Update tests and documentation to be consistent with latest desiutil versions (PR `#115`_).
+
+.. _`#112`: https://github.com/desihub/desimodel/pull/112
+.. _`#113`: https://github.com/desihub/desimodel/pull/113
+.. _`#114`: https://github.com/desihub/desimodel/pull/114
+.. _`#115`: https://github.com/desihub/desimodel/pull/115
+
+
+0.9.12 (2019-08-09)
+-------------------
+
+* Support for time-varying focal plane state (*e.g.* broken fibers) (PR `#105`_).
+* Documentation about CI weather *versus* model (PR `#107`_).
+* Fix :func:`~desimodel.footprint.find_points_radec` for scipy 1.3 (PR `#109`_).
+* Replace deprecated ``yaml.load`` with ``yaml.safe_load`` (PR `#110`_).
+
+.. _`#105`: https://github.com/desihub/desimodel/pull/105
+.. _`#107`: https://github.com/desihub/desimodel/pull/107
+.. _`#109`: https://github.com/desihub/desimodel/pull/109
+.. _`#110`: https://github.com/desihub/desimodel/pull/110
+
+0.9.11 (2019-05-30)
+-------------------
+
+* Added data/footprint/ci-tiles-v7.fits, data/focalplane/ci-corners.ecsv
+  to svn and docs to GitHub (PR `#103`_).
+
+.. _`#103`: https://github.com/desihub/desimodel/pull/103
+
+0.9.10 (2019-02-28)
+-------------------
+
+* ``io.load_tiles(tilesfile)`` warns if local copy exists, but :envvar:`DESIMODEL`
+  version wins (PR `#98`_ and `#101`_).
+* Update default tile radius (max radius, not typical outer pos radius)
+  (PR `#102`_).
+
+.. _`#98`: https://github.com/desihub/desimodel/pull/98
+.. _`#101`: https://github.com/desihub/desimodel/pull/101
+.. _`#102`: https://github.com/desihub/desimodel/pull/102
+
+0.9.9 (2018-09-27)
 ------------------
 
-* No changes yet.
+* Change default healpy pixel overlap factor from 4 to 128 (PR `#93`_).
+
+.. _`#93`: https://github.com/desihub/desimodel/pull/93
+
+0.9.8 (2018-09-05)
+------------------
+
+* Implement :func:`~desimodel.weather.dome_close_fractions` to replay daily Mayall weather history (PR `#92`_).
+* Run tests using new svn branch test-0.9.8.
+* Bug fix for GFA target selection when no targets overlap a GFA (PR `#91`_).
+
+.. _`#91`: https://github.com/desihub/desimodel/pull/91
+.. _`#92`: https://github.com/desihub/desimodel/pull/92
+
+0.9.7 (2018-07-30)
+------------------
+
+* Create DESI-3977 in doc/tex/desi3977/ to track ELG SNR with changes to the DESI model.
+* Add accompanying notebook doc/nb/ELG_SNR.ipynb.
+
+0.9.6 (2018-07-18)
+------------------
+
+* Update data and associated code to reflect changes in DESI-347-v13 (PR `#89`_):
+  * ``data/throughput/thru-[brz].fits``: new corrector coatings.
+  * ``data/throughput/DESI-0347_blur.ecsv``: new achromatic blurs.
+  * ``data/desi.yaml``: new read noise and dark currents.
+  * ``data/focalplane/gfa.ecsv``: replace ``RADIUS_MM`` with ``S``.
+  * ``data/throughput/DESI-0347_static_[123].fits``: replace random offset files (RMS=10.886um) with static offset files (RMS=8.0um).
+* Use a new svn branch test-0.9.6 for travis tests (was test-0.9.3).
+
+.. _`#89`: https://github.com/desihub/desimodel/pull/89
 
 0.9.5 (2018-06-27)
 ------------------
 
 * Increase test coverage, especially for :mod:`desimodel.trim` (PR `#82`_).
-* Reorganize desimodel.focalplane and add more GFA selection code (PR `#85`_).
+* Reorganize :mod:`desimodel.focalplane` and add more GFA selection code (PR `#85`_).
 * Allow an environment variable in the tilesfile filename (PR `#87`_).
 
 .. _`#82`: https://github.com/desihub/desimodel/pull/82
