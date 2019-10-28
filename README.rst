@@ -2,7 +2,7 @@
 desimodel
 =========
 
-Forked to reflect changes and use for LVM Data Model
+**Deprecated for LVM developement until further notice.** Forked to reflect changes and use for LVM Data Model.
 
 Introduction
 ------------
